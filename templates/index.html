@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>校友管理系统</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+  <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+  <style>
+    body { background:#f7f8fb; }
+
+    /* 顶部工具条按钮：统一竖排、尺寸一致 */
+    .btn-vertical {
+      width: 58px;               /* 固定宽度让两个按钮外观一致 */
+      text-align: center;
+      line-height: 1.1;
+      padding-top: .55rem;
+      padding-bottom: .55rem;
+    }
+
+    /* 卡片与表格细节 */
+    .card { border:1px solid rgba(0,0,0,.06); box-shadow:0 .35rem .8rem rgba(0,0,0,.06); }
+    .card-header { background:#fff; }
+
+    /* 粘性表头 */
+    .table-sticky thead th {
+      position: sticky;
+      top: 0;
+      background: #fff;
+      z-index: 2;
+      box-shadow: 0 1px 0 rgba(0,0,0,.08);
+    }
+
+    /* 行距更紧凑、垂直居中 */
+    .table > :not(caption) > * > * {
+      padding: .65rem .75rem;
+      vertical-align: middle;
+    }
+
+    /* 行 hover 更柔和 */
+    .table-hover tbody tr:hover { background:#f9fbff; }
+
+    /* 多行省略（用于简介/邮箱/专业等长文本） */
+    .text-truncate-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      max-width: 36ch;
+    }
+  </style>
+</head>
+<body class="container py-4">
+  {% if current_user %}
+    <div class="d-flex justify-content-end mb-3">
+      <span class="me-2">你好，{{ current_user.username }}</span>
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('auth.logout') }}">退出</a>
+    </div>
+  {% endif %}
+
+  <!-- 搜索栏 + 新增（并排，按钮竖排文字 & 同样样式） -->
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    <form class="d-flex flex-grow-1 gap-2" action="{{ url_for('search') }}" method="get">
+      <input type="text" name="keyword" value="{{ keyword if keyword else '' }}"
+             class="form-control" placeholder="搜索姓名/电话/邮箱/专业/城市等">
+      <button type="submit" class="btn btn-primary btn-vertical">查<br>询</button>
+    </form>
+    <a href="{{ url_for('add') }}" class="btn btn-primary btn-vertical">新<br>增</a>
+  </div>
+
+  <!-- 卡片形式的表格 -->
+  <div class="card shadow-sm">
+    <div class="card-header bg-white fw-semibold">校友列表</div>
+    <div class="table-responsive">
+      <table class="table table-hover table-striped align-middle mb-0 table-sticky">
+        <thead class="table-light">
+          <tr class="text-nowrap">
+            <th>ID</th>
+            <th>姓名</th>
+            <th>性别</th>
+            <th>年龄</th>
+            <th>联系方式</th>
+            <th>邮箱</th>
+            <th>毕业年份</th>
+            <th>学位</th>
+            <th>专业</th>
+            <th>城市</th>
+            <th>国家</th>
+            <th>简介</th>
+            <th class="text-center">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- 前端在 HTML 中用模板语法直接使用数据 -->
+        {% for user in users %}
+          <tr>
+            <td class="text-muted">{{ user.id }}</td>
+            <td class="fw-medium">{{ user.name }}</td>
+            <td>{{ user.gender }}</td>
+            <td>{{ user.age }}</td>
+            <td class="text-nowrap">{{ user.phone }}</td>
+            <td><span class="text-truncate-2" title="{{ user.email or '' }}">{{ user.email or '' }}</span></td>
+            <td>{{ user.grad_year or '' }}</td>
+            <td><span class="badge bg-light text-secondary border">{{ user.degree or '' }}</span></td>
+            <td><span class="text-truncate-2" title="{{ user.major or '' }}">{{ user.major or '' }}</span></td>
+            <td>{{ user.city or '' }}</td>
+            <td>{{ user.country or '' }}</td>
+            <td><span class="text-truncate-2" title="{{ user.bio or '' }}">{{ user.bio or '' }}</span></td>
+            <td class="text-center">
+              <div class="btn-group btn-group-sm" role="group">
+                <a href="{{ url_for('edit', id=user.id) }}" class="btn btn-outline-primary">编辑</a>
+                <a href="{{ url_for('delete', id=user.id) }}" class="btn btn-outline-danger"
+                   onclick="return confirm('确认删除这位校友吗？');">删除</a>
+                <button type="button" class="btn btn-outline-secondary ai-summary"
+                        data-name="{{ user.name }}"
+                        data-major="{{ user.major or '' }}"
+                        data-bio="{{ user.bio or '' }}">
+                  <span class="ai-label">AI 摘要</span>
+                  <span class="spinner-border spinner-border-sm d-none ms-1"></span>
+                </button>
+                <!-- 新增：生成邮件草稿按钮 -->
+                <button type="button" class="btn btn-outline-secondary ai-email"
+                        data-name="{{ user.name }}"
+                        data-major="{{ user.major or '' }}"
+                        data-grad-year="{{ user.grad_year or '' }}">
+                  <span class="email-label">AI 邮件</span>
+                  <span class="spinner-border spinner-border-sm d-none ms-1"></span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+        {% if users|length == 0 %}
+          <tr>
+            <td colspan="13" class="text-center text-muted py-5">
+              暂无数据，试试调整搜索条件或点击 <a href="{{ url_for('add') }}">新增</a>。
+            </td>
+          </tr>
+        {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+  // AI 摘要：加载态 + 错误提示
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.ai-summary');
+    if (!btn) return;
+
+    const label = btn.querySelector('.ai-label');
+    const spinner = btn.querySelector('.spinner-border');
+
+    btn.disabled = true;
+    label.textContent = '生成中';
+    spinner.classList.remove('d-none');
+
+    try {
+      const payload = {
+        name: btn.dataset.name || '',
+        major: btn.dataset.major || '',
+        work: '',
+        bio: btn.dataset.bio || ''
+      };
+      const res = await fetch('/ai/summary', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok && data.summary) {
+        alert('AI 摘要：\n' + data.summary);
+      } else {
+        throw new Error(data.error || '生成失败');
+      }
+    } catch (err) {
+      alert('生成失败：' + err.message);
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      label.textContent = 'AI 摘要';
+      spinner.classList.add('d-none');
+    }
+  });
+
+    // 新增：AI 邮件草稿生成
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.ai-email');
+    if (!btn) return;
+
+    const label = btn.querySelector('.email-label');
+    const spinner = btn.querySelector('.spinner-border');
+
+    btn.disabled = true;
+    label.textContent = '生成中';
+    spinner.classList.remove('d-none');
+
+    try {
+      // 构造邮件参数（可根据实际需求调整，这里以邀请返校为例）
+      const payload = {
+        topic: "校友返校日邀请",
+        audience: `${btn.dataset.gradYear || '未知'}届 ${btn.dataset.major || '校友'} ${btn.dataset.name}`,
+        style: "正式友好",
+        points: [
+          "时间：2024年9月20日",
+          "地点：学校主楼礼堂",
+          "活动：校友分享会 + 校园参观",
+          "报名截止：9月10日"
+        ]
+      };
+
+      const res = await fetch('/ai/draft_email', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (res.ok && data.draft) {
+        // 弹窗展示邮件草稿（可用 textarea 方便复制）
+        alert('AI 邮件草稿：\n\n' + data.draft);
+      } else {
+        throw new Error(data.error || '生成失败');
+      }
+    } catch (err) {
+      alert('邮件生成失败：' + err.message);
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      label.textContent = 'AI 邮件';
+      spinner.classList.add('d-none');
+    }
+  });
+  </script>
+
+</body>
+</html>

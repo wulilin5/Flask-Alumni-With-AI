@@ -1,0 +1,7 @@
+Flask
+PyMySQL
+requests
+python-dotenv
+flask-login
+werkzeug
+

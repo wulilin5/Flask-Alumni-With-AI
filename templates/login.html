@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>登录 - 校友管理系统</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+  <style>
+    body { min-height:100vh; background:linear-gradient(120deg,#0ea5e9,#f97316); }
+    .card { width:420px; margin:10vh auto; background:rgba(255,255,255,.15); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.2); }
+    .btn-primary { background:#22c55e; border:none; }
+  </style>
+</head>
+<body>
+  <div class="card p-4">
+    <h4 class="text-center mb-3 text-white">登录</h4>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{cat}}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="post" action="{{ url_for('auth.login_post') }}">
+      <div class="mb-3">
+        <input class="form-control" name="username" placeholder="用户名（示例：admin）" required>
+      </div>
+      <div class="mb-3">
+        <input class="form-control" type="password" name="password" placeholder="密码（示例：admin）" required>
+      </div>
+      <button class="btn btn-primary w-100" type="submit">登录</button>
+    </form>
+
+  <!-- 这里加注册按钮 -->
+    <div class="text-center mt-3">
+      <a href="{{ url_for('auth.register') }}">没有账号？去注册</a>
+    </div>
+  </div>
+</body>
+</html>
