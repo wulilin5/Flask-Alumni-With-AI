@@ -52,18 +52,6 @@ requests==2.31.0
 在项目根目录创建 `.env` 文件，并填入以下信息：
 
 ```env
-# Flask 配置
-FLASK_APP=app.py
-FLASK_ENV=development
-SECRET_KEY=your-secret-key-here
-
-# 数据库配置
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=your-db-password
-DB_NAME=alumni_mgmt
-DB_PORT=3306
-
 # LLM 配置
 LLM_BASE_URL=https://your-llm-api-base-url.com/v1
 LLM_API_KEY=your-llm-api-key-here
