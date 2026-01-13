@@ -5,4 +5,5 @@ python-dotenv
 flask-login
 werkzeug
 flask-cors
+gunicorn
 
