@@ -1,99 +1,69 @@
-name: Deploy Flask Alumni System
-
+name: deploy
 on:
   push:
-    branches:
-      - main
-      - master
-  workflow_dispatch:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: checkout
+        uses: actions/checkout@v6
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Login to Docker Registry
-        uses: docker/login-action@v2
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          registry: ${{ secrets.DOCKER_REGISTRY }}
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          python-version: '3.9'
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.DOCKER_REGISTRY }}/flask-alumni:latest
-            ${{ secrets.DOCKER_REGISTRY }}/flask-alumni:${{ github.sha }}
-          cache-from: type=registry,ref=${{ secrets.DOCKER_REGISTRY }}/flask-alumni:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKER_REGISTRY }}/flask-alumni:buildcache,mode=max
-
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Prepare docker-compose files
+      - name: Install dependencies
         run: |
-          echo "Preparing deployment files..."
-          mkdir -p deploy
-          cp docker-compose.yml deploy/
-          cp .env deploy/.env
-          cp alumni_schema.sql deploy/
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Copy files to server
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          password: ${{ secrets.SERVER_PASSWORD }}
-          port: ${{ secrets.SSH_PORT }}
-          source: "deploy/*"
-          target: "/opt/flask-alumni"
-          strip_components: 1
+      - name: Run tests
+        run: python -m pytest
 
-      - name: Deploy to server via SSH
-        uses: appleboy/ssh-action@master
+      # 步骤 2：使用存储的密钥对腾讯云容器 Registry 进行身份验证
+      # 在将 Docker 镜像推送到 Registry 之前需要此步骤
+      - name: Login to Tencent Cloud Registry
+        uses: docker/login-action@v3
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          password: ${{ secrets.SERVER_PASSWORD }}
-          port: ${{ secrets.SSH_PORT }}
+          # 作为 GitHub 密钥存储的 Registry URL
+          registry: ${{ secrets.TENCENT_REGISTRY }}
+          # 用于身份验证的密钥 ID
+          username: ${{ secrets.TENCENT_SECRET_ID }}
+          # 用于身份验证的密钥
+          password: ${{ secrets.TENCENT_SECRET_KEY }}
+      # 步骤 3：使用项目的 Dockerfile 构建 Docker 镜像
+      # 为腾讯云容器 Registry 标记镜像
+      - name: build the docker image
+        run: docker build . --file Dockerfile --tag ccr.ccs.tencentyun.com/file_hub_images/ams:latest
+    # 步骤 4：将构建的 Docker 镜像推送到腾讯云容器 Registry
+    # 成功推送后，镜像可用于部署
+      - name: push the docker image
+        run: docker push ccr.ccs.tencentyun.com/file_hub_images/ams:latest
+
+      - name: upload
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          port: ${{ secrets.PORT }}
+          source: ./docker-compose-ams.yml
+          target: /home/ubuntu/
+
+      - name: start service
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          port: ${{ secrets.PORT }}
           script: |
-            cd /opt/flask-alumni
-
-            # 停止现有容器
-            echo "Stopping existing containers..."
-            docker-compose down || true
-
-            # 登录到 Docker Registry
-            echo "Logging into Docker Registry..."
-            echo ${{ secrets.DOCKER_PASSWORD }} | docker login ${{ secrets.DOCKER_REGISTRY }} -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-
-            # 拉取最新镜像
-            echo "Pulling latest image..."
-            docker-compose pull
-
-            # 启动服务
-            echo "Starting services..."
-            docker-compose up -d
-
-            # 查看服务状态
-            echo "Service status:"
-            docker-compose ps
-
-            # 清理旧镜像（保留最近 3 个）
-            echo "Cleaning up old images..."
-            docker image prune -a --filter "until=72h" -f
-
-            echo "Deployment completed successfully!"
+            cd /home/ubuntu
+            docker compose -f docker-compose-ams.yml pull
+            docker compose -f docker-compose-ams.yml down --remove-orphans
+            docker compose -f docker-compose-ams.yml up -d
