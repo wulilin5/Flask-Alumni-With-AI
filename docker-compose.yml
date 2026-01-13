@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库服务
+  mysql:
+    image: mysql:8.0
+    container_name: flask-alumni-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-alumni_mgmt}
+      MYSQL_USER: ${MYSQL_USER:-alumni_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-alumni_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./alumni_schema.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - alumni-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Flask 应用服务
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flask-alumni-web
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      # 数据库配置
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${MYSQL_USER:-alumni_user}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-alumni_password}
+      DB_NAME: ${MYSQL_DATABASE:-alumni_mgmt}
+      # LLM 配置
+      LLM_BASE_URL: ${LLM_BASE_URL}
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_MODEL: ${LLM_MODEL}
+      # Flask 配置
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:-a-very-secret-key-change-in-production}
+      PYTHONUNBUFFERED: 1
+    volumes:
+      - ./static:/app/static
+      - ./templates:/app/templates
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - alumni-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  alumni-network:
+    driver: bridge

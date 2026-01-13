@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+readme.md
+
+# GitHub
+.github/
+
+# CI/CD
+deploy/
+
+# Database
+*.sql
+!alumni_schema.sql
+
+# Environment
+.env
+
+# Test files
+test.py
+*.test.py
