@@ -6,6 +6,7 @@ import pymysql.cursors
 from services.ai_query import ai_expand_query
 from dotenv import load_dotenv
 import os
+import init_db
 
 load_dotenv()  # 让 .env 生效
 
@@ -31,6 +32,14 @@ def get_db_connection():
 # =========================
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', "a-very-secret-key")
+
+# =========================
+# 自动初始化数据库
+# =========================
+try:
+    init_db.init_database()
+except Exception as e:
+    print(f"警告: 数据库初始化失败 - {e}")
 
 # 启用 CORS，允许前端跨域访问
 CORS(app, supports_credentials=True)
