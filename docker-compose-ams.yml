@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  file_server:
+  ams:
     image: ccr.ccs.tencentyun.com/file_hub_images/ams:latest
     container_name: ams
     restart: unless-stopped
