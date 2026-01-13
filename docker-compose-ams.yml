@@ -5,6 +5,8 @@ services:
     image: ccr.ccs.tencentyun.com/file_hub_images/ams:latest
     container_name: ams
     restart: unless-stopped
+    ports:
+      - "8001:8001"
     networks:
       - union_network
 
