@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  file_server:
+    image: ccr.ccs.tencentyun.com/file_hub_images/ams:latest
+    container_name: ams
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    networks:
+      - union_network
+
+networks:
+  union_network:
+    external: true

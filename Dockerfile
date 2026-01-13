@@ -26,9 +26,9 @@ COPY . .
 EXPOSE 8001
 
 # 设置环境变量
-ENV FLASK_APP=app.py
+ENV FLASK_APP=app_api.py
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 
 # 启动命令
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8001", "--timeout", "120", "app:app"]
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8001", "--timeout", "120", "app_api:app"]
