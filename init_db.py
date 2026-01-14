@@ -30,10 +30,12 @@ def init_database():
             
             # 切换到目标数据库
             cursor.execute(f"USE {db_name}")
-            
+
+            # 删除旧表（如果存在）
+            cursor.execute("DROP TABLE IF EXISTS tb_user")
+
             # 创建校友用户表
             create_table_sql = """
-            DROP TABLE IF EXISTS tb_user;
             CREATE TABLE tb_user (
               id INT PRIMARY KEY AUTO_INCREMENT,
               name VARCHAR(100) NOT NULL,
@@ -54,7 +56,7 @@ def init_database():
               KEY idx_major (major),
               KEY idx_city (city),
               KEY idx_grad_year (grad_year)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """
             cursor.execute(create_table_sql)
             print("✓ 表 tb_user 创建成功")
