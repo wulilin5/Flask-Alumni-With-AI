@@ -7,6 +7,7 @@ from services.ai_query import ai_expand_query
 from dotenv import load_dotenv
 import os
 import init_db
+from werkzeug.security import generate_password_hash, check_password_hash
 
 load_dotenv()  # 让 .env 生效
 
@@ -101,6 +102,21 @@ def _require_login():
         return error_response("未登录，请先登录", 401)
 
 # =========================
+# 权限检查装饰器
+# =========================
+from functools import wraps
+
+def require_admin(f):
+    """管理员权限检查装饰器"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = session.get('user')
+        if not user or user.get('role') != 'admin':
+            return error_response("需要管理员权限", 403)
+        return f(*args, **kwargs)
+    return decorated_function
+
+# =========================
 # 认证相关 API
 # =========================
 @app.route('/api/auth/login', methods=['POST'])
@@ -113,10 +129,45 @@ def login():
     if not username or not password:
         return error_response("用户名和密码不能为空", 400)
 
-    # 这里应该是数据库验证，简化处理：任何非空用户名密码都允许登录
-    # 实际项目中应该查询数据库验证
-    session['user'] = {'username': username}
-    return success_response({'username': username}, "登录成功")
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            # 查询用户
+            cursor.execute("SELECT id, username, password_hash, role, is_active FROM auth_user WHERE username=%s", (username,))
+            user = cursor.fetchone()
+
+            if not user:
+                return error_response("用户名或密码错误", 401)
+
+            if not user['is_active']:
+                return error_response("账户已被禁用", 403)
+
+            # 验证密码
+            if not check_password_hash(user['password_hash'], password):
+                return error_response("用户名或密码错误", 401)
+
+            # 更新最后登录时间
+            cursor.execute("UPDATE auth_user SET last_login=NOW() WHERE id=%s", (user['id'],))
+
+            # 保存用户信息到 Session
+            session['user'] = {
+                'id': user['id'],
+                'username': user['username'],
+                'role': user['role']
+            }
+
+            conn.commit()
+            conn.close()
+
+            return success_response({
+                'id': user['id'],
+                'username': user['username'],
+                'role': user['role']
+            }, "登录成功")
+
+    except Exception as e:
+        print("Login error:", e)
+        return error_response(f"登录失败: {str(e)}", 500)
 
 @app.route('/api/auth/register', methods=['POST'])
 def register():
@@ -134,12 +185,44 @@ def register():
     if len(password) < 6:
         return error_response("密码至少 6 个字符", 400)
 
-    # 演示模式：直接注册成功，实际项目中应该：
-    # 1. 检查用户名是否已存在
-    # 2. 加密密码（使用 bcrypt 或 hashlib）
-    # 3. 插入数据库
-    session['user'] = {'username': username}
-    return success_response({'username': username}, "注册成功，已自动登录")
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            # 检查用户名是否已存在
+            cursor.execute("SELECT id FROM auth_user WHERE username=%s", (username,))
+            if cursor.fetchone():
+                return error_response("用户名已存在", 400)
+
+            # 加密密码
+            password_hash = generate_password_hash(password)
+
+            # 插入新用户
+            cursor.execute(
+                "INSERT INTO auth_user (username, password_hash, role, is_active) VALUES (%s, %s, 'user', TRUE)",
+                (username, password_hash)
+            )
+
+            new_user_id = cursor.lastrowid
+
+            # 保存用户信息到 Session
+            session['user'] = {
+                'id': new_user_id,
+                'username': username,
+                'role': 'user'
+            }
+
+            conn.commit()
+            conn.close()
+
+            return success_response({
+                'id': new_user_id,
+                'username': username,
+                'role': 'user'
+            }, "注册成功，已自动登录")
+
+    except Exception as e:
+        print("Register error:", e)
+        return error_response(f"注册失败: {str(e)}", 500)
 
 @app.route('/api/auth/logout', methods=['POST'])
 def logout():
@@ -154,6 +237,83 @@ def get_current_user():
     if user:
         return success_response(user)
     return error_response("未登录", 401)
+
+# =========================
+# 用户管理 API（仅管理员）
+# =========================
+
+@app.route('/api/admin/users', methods=['GET'])
+@require_admin
+def get_users():
+    """获取所有用户列表（仅管理员）"""
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT id, username, role, is_active, created_at, last_login
+                FROM auth_user
+                ORDER BY id
+            """)
+            users = cursor.fetchall()
+        conn.close()
+        return success_response(users, "获取用户列表成功")
+    except Exception as e:
+        print("Get users error:", e)
+        return error_response(f"获取用户列表失败: {str(e)}", 500)
+
+@app.route('/api/admin/users/<int:user_id>/toggle', methods=['POST'])
+@require_admin
+def toggle_user_status(user_id):
+    """启用/禁用用户（仅管理员）"""
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            # 查询当前状态
+            cursor.execute("SELECT is_active FROM auth_user WHERE id=%s", (user_id,))
+            result = cursor.fetchone()
+
+            if not result:
+                return error_response("用户不存在", 404)
+
+            # 切换状态
+            new_status = not result['is_active']
+            cursor.execute("UPDATE auth_user SET is_active=%s WHERE id=%s", (new_status, user_id))
+
+            conn.commit()
+            conn.close()
+
+            status_text = "启用" if new_status else "禁用"
+            return success_response({'user_id': user_id, 'is_active': new_status}, f"用户已{status_text}")
+    except Exception as e:
+        print("Toggle user error:", e)
+        return error_response(f"操作失败: {str(e)}", 500)
+
+@app.route('/api/admin/users/<int:user_id>', methods=['DELETE'])
+@require_admin
+def delete_user(user_id):
+    """删除用户（仅管理员）"""
+    user = session.get('user')
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            # 不允许删除自己
+            if user_id == user['id']:
+                return error_response("不能删除自己", 400)
+
+            # 检查用户是否存在
+            cursor.execute("SELECT id FROM auth_user WHERE id=%s", (user_id,))
+            if not cursor.fetchone():
+                return error_response("用户不存在", 404)
+
+            # 删除用户
+            cursor.execute("DELETE FROM auth_user WHERE id=%s", (user_id,))
+            conn.commit()
+            conn.close()
+
+            return success_response(None, "用户删除成功")
+    except Exception as e:
+        print("Delete user error:", e)
+        return error_response(f"删除失败: {str(e)}", 500)
 
 # =========================
 # 校友管理 API

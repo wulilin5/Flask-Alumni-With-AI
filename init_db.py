@@ -60,11 +60,30 @@ def init_database():
             """
             cursor.execute(create_table_sql)
             print("✓ 表 tb_user 创建成功")
-            
-            # 检查表中是否有数据
+
+            # 创建用户认证表
+            cursor.execute("DROP TABLE IF EXISTS auth_user")
+            create_auth_user_sql = """
+            CREATE TABLE auth_user (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              username VARCHAR(50) UNIQUE NOT NULL,
+              password_hash VARCHAR(255) NOT NULL,
+              role ENUM('admin', 'user') DEFAULT 'user',
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+              last_login TIMESTAMP NULL,
+              is_active BOOLEAN DEFAULT TRUE,
+              KEY idx_username (username),
+              KEY idx_role (role)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+            cursor.execute(create_auth_user_sql)
+            print("✓ 表 auth_user 创建成功")
+
+            # 检查校友表中是否有数据
             cursor.execute("SELECT COUNT(*) as count FROM tb_user")
             result = cursor.fetchone()
-            
+
             if result['count'] == 0:
                 # 插入示例数据
                 insert_data_sql = """
@@ -78,6 +97,23 @@ def init_database():
                 print("✓ 示例数据插入成功")
             else:
                 print(f"✓ 表中已有 {result['count']} 条数据，跳过示例数据插入")
+
+            # 检查用户表中是否有管理员账户
+            cursor.execute("SELECT COUNT(*) as count FROM auth_user WHERE role='admin'")
+            result = cursor.fetchone()
+
+            if result['count'] == 0:
+                # 插入默认管理员账户（用户名: admin, 密码: admin123）
+                from werkzeug.security import generate_password_hash
+                default_password_hash = generate_password_hash('admin123')
+                insert_admin_sql = """
+                INSERT INTO auth_user (username, password_hash, role, is_active) VALUES
+                ('admin', %s, 'admin', TRUE)
+                """
+                cursor.execute(insert_admin_sql, (default_password_hash,))
+                print("✓ 默认管理员账户创建成功 (用户名: admin, 密码: admin123)")
+            else:
+                print(f"✓ 已有 {result['count']} 个管理员账户，跳过默认管理员创建")
             
         connection.commit()
         print("\n✅ 数据库初始化完成！")
