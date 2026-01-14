@@ -16,6 +16,7 @@ services:
       - LLM_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
       - LLM_API_KEY=f0fa1187-d008-425a-8f62-b3b3e40f404d
       - LLM_MODEL=deepseek-v3-1-250821
+      - FLASK_SECRET_KEY=ams-secret-key-2024-production-secure
     networks:
       - union_network
 
