@@ -7,6 +7,12 @@ services:
     restart: unless-stopped
     ports:
       - "8001:8001"
+    environment:
+      - DB_HOST=file_hub_mysql
+      - DB_PORT=3306
+      - DB_USER=file_hub_user
+      - DB_PASSWORD=file_hub_password
+      - DB_NAME=file_hub
     networks:
       - union_network
 
