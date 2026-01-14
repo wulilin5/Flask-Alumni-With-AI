@@ -244,7 +244,7 @@ def get_current_user():
 
 @app.route('/api/admin/users', methods=['GET'])
 @require_admin
-def get_users():
+def get_auth_users():
     """获取所有用户列表（仅管理员）"""
     try:
         conn = get_db_connection()

@@ -4,6 +4,7 @@
 自动创建数据库和校友信息表
 """
 import pymysql
+import pymysql.cursors
 import os
 from dotenv import load_dotenv
 
@@ -18,7 +19,8 @@ def init_database():
         port=int(os.getenv('DB_PORT', 3306)),
         user=os.getenv('DB_USER', 'root'),
         password=os.getenv('DB_PASSWORD', ''),
-        charset='utf8mb4'
+        charset='utf8mb4',
+        cursorclass=pymysql.cursors.DictCursor
     )
     
     try:
