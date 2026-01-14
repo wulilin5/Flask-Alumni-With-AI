@@ -290,7 +290,7 @@ def toggle_user_status(user_id):
 
 @app.route('/api/admin/users/<int:user_id>', methods=['DELETE'])
 @require_admin
-def delete_user(user_id):
+def delete_auth_user(user_id):
     """删除用户（仅管理员）"""
     user = session.get('user')
     try:
