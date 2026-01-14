@@ -71,5 +71,5 @@ jobs:
           script: |
             cd /home/ubuntu
             docker compose -f docker-compose-ams.yml pull
-            docker compose -f docker-compose-ams.yml down --remove-orphans
+            docker compose -f docker-compose-ams.yml down
             docker compose -f docker-compose-ams.yml up -d
